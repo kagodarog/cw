@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 )
 
 //CW provides the APIo peration methods for making requests to AWS cloudwatch logs.
@@ -18,7 +19,7 @@ type CW struct {
 }
 
 // New creates a new instance of the CW client
-func New(awsEndpointURL *string, awsProfile *string, awsRegion *string, log *log.Logger) *CW {
+func New(awsProfile *string, awsRegion *string, log *log.Logger) *CW {
 	//workaround to figure out the user actual home dir within a SNAP (rather than the sandboxed one)
 	//and access the  .aws folder in its default location
 	if os.Getenv("SNAP_INSTANCE_NAME") != "" {
@@ -37,10 +38,8 @@ func New(awsEndpointURL *string, awsProfile *string, awsRegion *string, log *log
 	}
 	log.Printf("awsProfile: %s, awsRegion: %s\n", *awsProfile, *awsRegion)
 
-	if awsEndpointURL != nil {
-		log.Printf("awsEndpointURL:%s", *awsEndpointURL)
-	}
 	opts := session.Options{
+		AssumeRoleTokenProvider: stscreds.StdinTokenProvider,
 		SharedConfigState: session.SharedConfigEnable,
 	}
 
@@ -48,16 +47,10 @@ func New(awsEndpointURL *string, awsProfile *string, awsRegion *string, log *log
 		opts.Profile = *awsProfile
 	}
 
-	cfg := aws.Config{}
-
-	if awsEndpointURL != nil {
-		cfg.Endpoint = awsEndpointURL
-	}
 	if awsRegion != nil {
-		cfg.Region = awsRegion
+		opts.Config = aws.Config{Region: awsRegion}
 	}
 
-	opts.Config = cfg
 	sess := session.Must(session.NewSessionWithOptions(opts))
 	return &CW{awsClwClient: cloudwatchlogs.New(sess),
 		log: log}
